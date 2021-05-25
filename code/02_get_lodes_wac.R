@@ -111,56 +111,6 @@ nhmerged1 <- nhmerged1 %>%
   group_by(PROVNUM) %>%
   slice_min(abs_block_diff, order_by=block_diff,n= 1, with_ties=FALSE)
 
-
-# ##########################
-# # If no employment on the block, get entire block group instead
-# nhunmatched <- nhmerged %>% filter(is.na(C000)) %>% mutate(nh_bg = substr(censusblock, 1, 12))
-# allemp = list()
-# for(i in 1:length(statelist)) {
-#   s = statelist[[i]]
-#   stfips = as.data.table(us)[state==s,]$state_code
-#   nhblockgroups = unique((nhunmatched %>% filter(STATE==s))$nh_bg)
-#   if(s=="AK") {
-#     year = 2016
-#   }
-#   else {
-#     year = 2018
-#   }
-#   data1 <- grab_lodes(s, year,
-#                       lodes_type = c("wac"),
-#                       job_type = c("JT00"),
-#                       segment = c("SI03"),
-#                       agg_geo = c("block"),
-#                       state_part = c("main"),
-#                       download_dir = TEMP_DIR
-#   )
-#   data2 <- grab_lodes(s, year,
-#                       lodes_type = c("wac"),
-#                       job_type = c("JT00"),
-#                       segment = c("SI03"),
-#                       agg_geo = c("block"),
-#                       state_part = c("aux"),
-#                       download_dir = TEMP_DIR
-#   )  
-#   data <- rbindlist(list(data1, data2)) %>% mutate(w_bg=substr(w_geocode, 1, 12))
-#   data <- data %>% filter(w_bg %in% nhblockgroups)
-#   empsum <- data %>% group_by(w_bg) %>% summarise_at(c("C000", "CA01", "CA02", "CA03", "CNS16", "CR01", "CR02", "CR03", "CR04", "CR05", "CR07", "CT01", "CT02", "CD01", "CD02", "CD03", "CD04", "CS01", "CS02"), sum, na.rm=TRUE)
-#   allemp[[i]] <- data %>% 
-#     group_by(w_bg, w_geocode) %>% 
-#     summarise_at(c("C000", "CA01", "CA02", "CA03", "CNS16", "CR01", "CR02", "CR03", "CR04", "CR05", "CR07", "CT01", "CT02", "CD01", "CD02", "CD03", "CD04", "CS01", "CS02"), sum, na.rm=TRUE)
-#   
-# }
-# empmerge <- rbindlist(allemp)
-# nhmerged1 <- merge(nhunmatched %>% select(PROVNUM, RESTOT, pbj_emp, cxy_lon, cxy_lat, match_type, censusblock, nh_bg),
-#                    empmerge,  by.x="nh_bg", by.y="w_bg", all.x=TRUE, allow.cartesian=TRUE)
-# nhmerged1 <- nhmerged1 %>% 
-#   filter(CNS16 >= .5 * pbj_emp) %>%
-#   mutate(block_diff=as.numeric(w_geocode)-as.numeric(censusblock),
-#          abs_block_diff=abs(block-diff)) %>%
-#   group_by(PROVNUM) %>%
-#   slice_min(abs_block_diff, order_by=block_diff,n= 1, with_ties=FALSE)
-#   
-
 nhmerged1$bg_match <- 1
 nhall <- rbindlist(list(nhmatched, nhmerged1), use.names=TRUE, fill=TRUE)
 nhall <- nhall %>%
