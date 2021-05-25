@@ -23,13 +23,13 @@ getLL <- function(address,  state) {
       lng <- geoc_parse[[1]][[1]]$geometry$location$lng
       match <- 1
       print(match)
-      return(list(lat=lat, lng=lng, match=match))
+      return(list( lng=lng, lat=lat, match=match))
     }
   }, error = function(e) {
     lat <- 0
     lng <- 0
     match <- 0
-    return(list(lat=lat, lng=lng, match=match))
+    return(list( lng=lng, lat=lat, match=match))
   }
   
   )
@@ -41,7 +41,7 @@ get_cblock <- function(lng, lat) {
   if(!is.na(lat) & !is.na(lng) & (lat != 0 | lng != 0)) {
     tryCatch({
       cb = as.character(cxy_geography(lng, lat, vintage="Census2010_Current")$Census.Blocks.GEOID)
-      print(cb)
+      #print(cb)
       return(censusblock=cb)
     },
     error = function(e) {
@@ -55,10 +55,13 @@ get_cblock <- function(lng, lat) {
 
 
 ## Get coordinates
-nhcompare <- fread("raw/ProviderInfo_Download.csv")
+nhcompare <- fread("raw/ProviderInfo_2018.csv")
 nhcompare <- nhcompare %>%  
   select(PROVNUM, PROVNAME, ADDRESS, CITY, STATE, ZIP, RESTOT) %>%
-  mutate(fulladdress = str_replace_all(paste0(ADDRESS, ",", CITY,",", STATE, ",", ZIP), " ", "+"))
+  mutate(fulladdress = paste0(ADDRESS, ",", CITY,",", STATE, ",", ZIP)) %>%
+  mutate(fulladdress = str_squish(str_replace_all(fulladdress, "#", " "))) %>%
+  mutate(fulladdress = str_replace_all(fulladdress, " ", "+")) 
+  
 
 # Use Census Geocoder
 nhcompare <- cxy_geocode(nhcompare,  street = 'ADDRESS', city = 'CITY', state = 'STATE', zip = 'ZIP',
@@ -70,13 +73,14 @@ exact_matches <- nhcompare %>% filter(cxy_quality=="Exact")
 unmatched <- as.data.table(nhcompare %>% filter(cxy_quality != "Exact" | is.na(cxy_quality)))
 unmatched[,  c("cxy_lon", "cxy_lat", "gmaps_match") := getLL(fulladdress, STATE), by=1:nrow(unmatched)]
 
-all_matches <- rbindlist(list(exact_matches, unmatched), fill=TRUE)
+# Combine all LL coords
+all_matches <- rbindlist(list(exact_matches, unmatched), fill=TRUE, use.names=TRUE)
 all_matches <- all_matches %>% 
   mutate(match_type = case_when(cxy_quality=="Exact" ~ 1, gmaps_match==1 ~ 2, TRUE ~ 3))
-
 
 ## Get census blocks associated with each lon-lat
 nhcompare <- all_matches %>% select(PROVNUM, PROVNAME, ADDRESS, CITY, STATE, ZIP, RESTOT, cxy_lon, cxy_lat, match_type)
 nhcompare[, censusblock:=get_cblock(cxy_lon, cxy_lat), by=1:nrow(nhcompare)]
+
 nhcompare$censusblock <- str_pad(nhcompare$censusblock, 15, "left", "0")
 write.csv(nhcompare, "intermediate/nh_geocode.csv", row.names=FALSE)
